@@ -487,16 +487,24 @@ for(const [n,f,cs] of clean){
 let ALLPAIRS=[...pairMap.entries()]
   .filter(([k,pl])=>pl.length>=MIN_OVERLAP)
   .map(([k,pl])=>{const [a,b]=k.split("|");return {a,b,players:pl,key:k};});
-/* deterministic shuffle (stable across everyone) so strong pairs are spread out */
+/* Premier League clubs — prioritise so at least one PL side features as often as possible */
+const PL=new Set(["mun","mci","che","ars","liv","tot","eve","new","whu"]);
+const hasPL=p=>PL.has(p.a)||PL.has(p.b);
+const PIN="liv|mci"; // Day #1 marquee: a Premier League derby
 function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
-ALLPAIRS.sort((x,y)=>hashStr(x.key)-hashStr(y.key));
+ALLPAIRS.sort((x,y)=>{
+  if(x.key===PIN)return -1; if(y.key===PIN)return 1;
+  const px=hasPL(x)?0:1, py=hasPL(y)?0:1;         // PL-inclusive pairs come first
+  if(px!==py)return px-py;
+  return hashStr(x.key)-hashStr(y.key);            // deterministic shuffle within each group
+});
 
 /* ============ ENGINE ============ */
-const EPOCH = Date.UTC(2025,0,1);
+const EPOCH = Date.UTC(2026,7,7); // Aug 7 2026 -> today (Aug 8) is Day #1
 const DAY = 86400000;
 function todayUTC(){const d=new Date();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());}
-const dayNo = Math.floor((todayUTC()-EPOCH)/DAY);
-const dailyIndex = ((dayNo % ALLPAIRS.length)+ALLPAIRS.length)%ALLPAIRS.length;
+const dayNo = Math.max(1, Math.floor((todayUTC()-EPOCH)/DAY));
+const dailyIndex = (((dayNo-1) % ALLPAIRS.length)+ALLPAIRS.length)%ALLPAIRS.length;
 const _q = new URLSearchParams(location.search);
 let isPractice=false, activeIndex=dailyIndex;
 if(_q.has("p")){const pi=parseInt(_q.get("p"),10);if(!isNaN(pi)&&ALLPAIRS[pi]){activeIndex=pi;isPractice=true;}}
