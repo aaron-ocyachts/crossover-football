@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crossover — name the players who wore both shirts</title>
+<meta name="description" content="A daily football game: name every player who played for both of today's clubs in 60 seconds. Flags reveal the nationalities." />
+<style>
+  :root{
+    --bg:#0b0f1a; --bg2:#0e1424; --panel:#141b2e; --panel2:#1b2340; --line:#26304d;
+    --text:#eaf0ff; --muted:#8b97b8; --accent:#ffc234; --accent2:#3ddc97; --bad:#ff6b6b;
+    --radius:18px;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans);color:var(--text);
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(255,194,52,.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 110%, rgba(61,220,151,.08), transparent 60%), var(--bg);
+    min-height:100vh;-webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.06;
+    background-image:
+      linear-gradient(transparent 49.5%, #fff 49.5%, #fff 50.5%, transparent 50.5%),
+      radial-gradient(circle at 50% 50%, transparent 118px, #fff 119px, #fff 120px, transparent 121px);
+    background-size:100% 100%, 100% 100%;
+  }
+  .wrap{max-width:720px;margin:0 auto;padding:22px 18px 80px;position:relative;z-index:1}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;font-size:20px}
+  .brand .mark{width:30px;height:30px;border-radius:9px;position:relative;
+    background:linear-gradient(135deg,var(--accent),#ff9d3c);box-shadow:0 6px 18px rgba(255,194,52,.35);}
+  .brand .mark::before,.brand .mark::after{content:"";position:absolute;top:50%;transform:translateY(-50%);
+    width:9px;height:9px;border-radius:50%;border:2.5px solid #0b0f1a;}
+  .brand .mark::before{left:4px}.brand .mark::after{right:4px}
+  .brand small{display:block;font-weight:600;font-size:11px;color:var(--muted);letter-spacing:.02em;margin-top:-2px}
+  .daily{text-align:right;font-size:12px;color:var(--muted);font-weight:600;line-height:1.5}
+  .daily b{color:var(--text)}
+  .card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+    border-radius:var(--radius);padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .matchup{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:6px 0 4px}
+  .club{display:flex;align-items:center;gap:10px}
+  .crest{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;letter-spacing:.5px;color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), 0 8px 20px rgba(0,0,0,.35);}
+  .club .cname{font-weight:800;font-size:18px;letter-spacing:-.01em}
+  .vs{font-weight:800;color:var(--muted);font-size:14px;padding:0 2px}
+  .prompt{text-align:center;color:var(--muted);margin:14px 0 2px;font-size:14.5px}
+  .prompt b{color:var(--text)}
+  .hud{display:flex;align-items:center;justify-content:center;gap:26px;margin:18px 0 6px}
+  .score{font-weight:800;font-size:30px;letter-spacing:-.02em}
+  .score span{color:var(--muted);font-weight:700}
+  .timerRing{position:relative;width:70px;height:70px}
+  .timerRing svg{transform:rotate(-90deg)}
+  .timerRing .t{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px}
+  .inputRow{display:flex;gap:10px;margin-top:16px}
+  #guess{flex:1;background:var(--bg);border:1.5px solid var(--line);color:var(--text);padding:15px 16px;
+    border-radius:13px;font-size:16px;outline:none;font-family:var(--sans);transition:border-color .15s, box-shadow .15s;}
+  #guess:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,194,52,.14)}
+  #guess:disabled{opacity:.5}
+  .btn{border:none;border-radius:13px;padding:0 22px;font-weight:800;font-size:15px;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),#ff9d3c);color:#241a00;
+    box-shadow:0 8px 22px rgba(255,194,52,.3);transition:transform .08s, filter .15s;}
+  .btn:hover{filter:brightness(1.05)}.btn:active{transform:translateY(1px)}
+  .btn.secondary{background:var(--panel2);color:var(--text);box-shadow:none;border:1px solid var(--line)}
+  .btn.block{width:100%;padding:15px 0;margin-top:14px}
+  .shake{animation:shake .32s}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:20px}
+  .slot{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);
+    border-radius:12px;padding:9px 11px;min-height:50px;transition:.2s;}
+  .slot img.flag{width:26px;height:19px;border-radius:3px;object-fit:cover;flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+  .slot .flagcode{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:19px;padding:0 4px;
+    border-radius:3px;background:var(--panel2);font-size:10px;font-weight:800;color:var(--muted);flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+  .slot .nm{font-size:13.5px;font-weight:700;line-height:1.2}
+  .slot .hidden-nm{color:var(--muted);font-weight:800;letter-spacing:2px}
+  .slot.found{border-color:var(--accent2);background:linear-gradient(180deg,rgba(61,220,151,.14),rgba(61,220,151,.04))}
+  .slot.found .nm{color:var(--text)}
+  .slot.reveal{border-color:#4a3350;background:rgba(255,107,107,.06)}
+  .slot.reveal .nm{color:var(--bad)}
+  .pop{animation:pop .32s}
+  @keyframes pop{0%{transform:scale(.9)}55%{transform:scale(1.06)}100%{transform:scale(1)}}
+  .result{text-align:center;margin-top:20px}
+  .result h2{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}
+  .result p{margin:2px 0 0;color:var(--muted)}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
+    background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:11px 18px;border-radius:12px;
+    font-weight:700;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:5;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .foot{margin-top:26px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7}
+  .hint{text-align:center;color:var(--muted);font-size:12.5px;margin-top:12px}
+  @media(max-width:520px){.club .cname{font-size:15px}.crest{width:40px;height:40px;font-size:12px}.score{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark"></div><div>Crossover<small>the two-club football game</small></div></div>
+    <div class="daily">Daily <b id="dailyNo">#—</b><br><span id="dailyDate">—</span></div>
+  </header>
+  <div class="card">
+    <div class="matchup" id="matchup"></div>
+    <div class="prompt">Name every player who played for <b>both</b> clubs. The flags reveal their nationalities.</div>
+    <div class="hud">
+      <div class="score"><span id="found">0</span><span> / </span><span id="total">0</span> <span style="font-size:15px">found</span></div>
+      <div class="timerRing">
+        <svg width="70" height="70">
+          <circle cx="35" cy="35" r="30" stroke="#26304d" stroke-width="7" fill="none"/>
+          <circle id="ring" cx="35" cy="35" r="30" stroke="var(--accent)" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="0"/>
+        </svg>
+        <div class="t" id="tsec">60</div>
+      </div>
+    </div>
+    <div class="inputRow">
+      <input id="guess" type="text" placeholder="Press Start, then type a player…" autocomplete="off" spellcheck="false" disabled />
+      <button class="btn" id="startBtn">Start</button>
+    </div>
+    <div class="hint" id="hint">You have 60 seconds. Surnames are fine (e.g. “Zidane”).</div>
+    <div class="grid" id="grid"></div>
+    <div class="result" id="result" style="display:none"></div>
+  </div>
+  <div class="foot">
+    A new pair of clubs every day — the same pair for everyone. Player data compiled &amp; verified from public records.<br>
+    <span id="tomorrow"></span>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ CLUB META (name, crest colours, 3-letter tag) ============ */
+const CLUBS = {
+  rma:{name:"Real Madrid",c1:"#ffffff",c2:"#e2e8f5",tx:"#0b1f4a",ab:"RMA"},
+  bar:{name:"Barcelona",c1:"#a50044",c2:"#004d98",tx:"#ffffff",ab:"BAR"},
+  atm:{name:"Atlético Madrid",c1:"#cb3524",c2:"#272e61",tx:"#ffffff",ab:"ATM"},
+  val:{name:"Valencia",c1:"#ffffff",c2:"#eef1f7",tx:"#d18f00",ab:"VAL"},
+  sev:{name:"Sevilla",c1:"#ffffff",c2:"#eef1f7",tx:"#d4021d",ab:"SEV"},
+  vil:{name:"Villarreal",c1:"#ffd21e",c2:"#ffc400",tx:"#00519e",ab:"VIL"},
+  juv:{name:"Juventus",c1:"#111111",c2:"#3a3a3a",tx:"#ffffff",ab:"JUV"},
+  int:{name:"Inter",c1:"#0b1f8f",c2:"#111111",tx:"#ffffff",ab:"INT"},
+  mil:{name:"AC Milan",c1:"#fb090b",c2:"#111111",tx:"#ffffff",ab:"MIL"},
+  rom:{name:"Roma",c1:"#8e1111",c2:"#6f0d0d",tx:"#f0bc42",ab:"ROM"},
+  nap:{name:"Napoli",c1:"#12a0d7",c2:"#0a7fb0",tx:"#ffffff",ab:"NAP"},
+  laz:{name:"Lazio",c1:"#87d8f7",c2:"#5aa9cf",tx:"#0b3d2e",ab:"LAZ"},
+  fio:{name:"Fiorentina",c1:"#5c2d91",c2:"#48217a",tx:"#ffffff",ab:"FIO"},
+  mun:{name:"Man United",c1:"#da291c",c2:"#a61b12",tx:"#ffffff",ab:"MUN"},
+  mci:{name:"Man City",c1:"#6cabdd",c2:"#3f7fb5",tx:"#0b1f2e",ab:"MCI"},
+  che:{name:"Chelsea",c1:"#034694",c2:"#0a5bb5",tx:"#ffffff",ab:"CHE"},
+  ars:{name:"Arsenal",c1:"#ef0107",c2:"#b8000a",tx:"#ffffff",ab:"ARS"},
+  liv:{name:"Liverpool",c1:"#c8102e",c2:"#97061f",tx:"#ffffff",ab:"LIV"},
+  tot:{name:"Tottenham",c1:"#ffffff",c2:"#eef1f7",tx:"#132257",ab:"TOT"},
+  eve:{name:"Everton",c1:"#003399",c2:"#00287a",tx:"#ffffff",ab:"EVE"},
+  new:{name:"Newcastle",c1:"#111111",c2:"#3a3a3a",tx:"#ffffff",ab:"NEW"},
+  whu:{name:"West Ham",c1:"#7a263a",c2:"#5e1d2d",tx:"#f3d459",ab:"WHU"},
+  bay:{name:"Bayern Munich",c1:"#dc052d",c2:"#a30422",tx:"#ffffff",ab:"BAY"},
+  dor:{name:"Dortmund",c1:"#fde100",c2:"#f4d600",tx:"#111111",ab:"DOR"},
+  lev:{name:"Leverkusen",c1:"#e32219",c2:"#b81a12",tx:"#ffffff",ab:"LEV"},
+  sch:{name:"Schalke",c1:"#004d9e",c2:"#003b78",tx:"#ffffff",ab:"SCH"},
+  psg:{name:"PSG",c1:"#004170",c2:"#c8102e",tx:"#ffffff",ab:"PSG"},
+  mon:{name:"Monaco",c1:"#e63312",c2:"#cc2d10",tx:"#ffffff",ab:"MON"},
+  lyo:{name:"Lyon",c1:"#ffffff",c2:"#eef1f7",tx:"#d10a2e",ab:"LYO"},
+  mar:{name:"Marseille",c1:"#2faee0",c2:"#1f8fbf",tx:"#0b2e3d",ab:"MAR"},
+  aja:{name:"Ajax",c1:"#ffffff",c2:"#eef1f7",tx:"#d2122e",ab:"AJA"},
+  psv:{name:"PSV",c1:"#ed1c24",c2:"#c8161d",tx:"#ffffff",ab:"PSV"},
+  por:{name:"Porto",c1:"#0055a4",c2:"#003f7d",tx:"#ffffff",ab:"POR"},
+  ben:{name:"Benfica",c1:"#e00512",c2:"#b8040f",tx:"#ffffff",ab:"BEN"},
+  spo:{name:"Sporting CP",c1:"#1c8a42",c2:"#146633",tx:"#ffffff",ab:"SPO"},
+  gala:{name:"Galatasaray",c1:"#a4123f",c2:"#f6a01a",tx:"#ffffff",ab:"GAL"},
+};
+
+/* ============ MASTER PLAYER LIST — [name, flag ISO, [big clubs]] ============ */
+const MASTER = [
+  ["Cristiano Ronaldo","pt",["spo","mun","rma","juv"]],
+  ["Ronaldo","br",["psv","bar","int","mil","rma"]],
+  ["Zlatan Ibrahimović","se",["aja","juv","int","mil","bar","psg","mun"]],
+  ["Luís Figo","pt",["spo","bar","rma","int"]],
+  ["Ronaldinho","br",["psg","bar","mil"]],
+  ["Neymar","br",["bar","psg"]],
+  ["Lionel Messi","ar",["bar","psg"]],
+  ["David Beckham","gb-eng",["mun","rma"]],
+  ["Thierry Henry","fr",["mon","juv","ars","bar"]],
+  ["Nicolas Anelka","fr",["psg","ars","rma","liv","mci","juv","che"]],
+  ["Samuel Eto'o","cm",["rma","bar","int"]],
+  ["David Villa","es",["val","bar","atm"]],
+  ["Fernando Torres","es",["atm","liv","che","mil"]],
+  ["Diego Costa","es",["atm","che"]],
+  ["Luis Suárez","uy",["aja","liv","bar","atm"]],
+  ["Robinho","br",["rma","mci","mil"]],
+  ["Kaká","br",["mil","rma"]],
+  ["Andriy Shevchenko","ua",["mil","che"]],
+  ["Hernán Crespo","ar",["laz","int","mil","che"]],
+  ["Christian Vieri","it",["juv","atm","laz","int","mil","mon"]],
+  ["Gabriel Batistuta","ar",["fio","rom","int"]],
+  ["Roberto Baggio","it",["fio","juv","mil","int"]],
+  ["Zinedine Zidane","fr",["juv","rma"]],
+  ["Patrick Vieira","fr",["mil","ars","juv","int","mci"]],
+  ["Edgar Davids","nl",["aja","mil","juv","int","tot"]],
+  ["Clarence Seedorf","nl",["aja","rma","int","mil"]],
+  ["Ruud van Nistelrooy","nl",["psv","mun","rma"]],
+  ["Robin van Persie","nl",["ars","mun"]],
+  ["Dennis Bergkamp","nl",["aja","int","ars"]],
+  ["Marc Overmars","nl",["aja","ars","bar"]],
+  ["Giovanni van Bronckhorst","nl",["ars","bar"]],
+  ["Arjen Robben","nl",["psv","che","rma","bay"]],
+  ["Wesley Sneijder","nl",["aja","rma","int","gala"]],
+  ["Rafael van der Vaart","nl",["aja","rma","tot"]],
+  ["Luis Enrique","es",["rma","bar"]],
+  ["Michael Laudrup","dk",["juv","bar","rma"]],
+  ["Ronald Koeman","nl",["aja","psv","bar"]],
+  ["Frank Rijkaard","nl",["aja","mil"]],
+  ["Gerard Piqué","es",["mun","bar"]],
+  ["Cesc Fàbregas","es",["ars","bar","che","mon"]],
+  ["Thiago Alcântara","es",["bar","bay","liv"]],
+  ["Alexis Sánchez","cl",["bar","ars","mun","int","mar"]],
+  ["Arturo Vidal","cl",["lev","juv","bay","bar","int"]],
+  ["Carlos Tevez","ar",["whu","mun","mci","juv"]],
+  ["Javier Mascherano","ar",["whu","liv","bar"]],
+  ["Sergio Agüero","ar",["atm","mci","bar"]],
+  ["Ángel Di María","ar",["ben","rma","mun","psg","juv"]],
+  ["Gonzalo Higuaín","ar",["rma","nap","juv","mil"]],
+  ["Gabriel Heinze","ar",["psg","mun","rma","mar","rom"]],
+  ["Walter Samuel","ar",["rom","rma","int"]],
+  ["Esteban Cambiasso","ar",["rma","int"]],
+  ["Fernando Redondo","ar",["rma","mil"]],
+  ["Diego Forlán","uy",["mun","vil","atm","int"]],
+  ["Edinson Cavani","uy",["nap","psg","mun","val"]],
+  ["Radamel Falcao","co",["por","atm","mon","mun","che"]],
+  ["James Rodríguez","co",["por","mon","rma","bay","eve"]],
+  ["Jackson Martínez","co",["por","atm"]],
+  ["David Trezeguet","fr",["mon","juv"]],
+  ["Emmanuel Petit","fr",["mon","ars","bar","che"]],
+  ["Claude Makélélé","fr",["mar","rma","che","psg"]],
+  ["Didier Deschamps","fr",["mar","juv","che"]],
+  ["Marcel Desailly","fr",["mar","mil","che"]],
+  ["Karim Benzema","fr",["lyo","rma"]],
+  ["Florent Malouda","fr",["lyo","che"]],
+  ["Michael Essien","gh",["lyo","che","rma","mil"]],
+  ["Kylian Mbappé","fr",["mon","psg","rma"]],
+  ["Fabinho","br",["mon","liv"]],
+  ["Bernardo Silva","pt",["ben","mon","mci"]],
+  ["Bruno Fernandes","pt",["spo","mun"]],
+  ["João Cancelo","pt",["val","juv","mci","bar"]],
+  ["Rúben Dias","pt",["ben","mci"]],
+  ["David Silva","es",["val","mci"]],
+  ["Juan Mata","es",["val","che","mun"]],
+  ["Jordi Alba","es",["val","bar"]],
+  ["Pedro","es",["bar","che"]],
+  ["Thibaut Courtois","be",["che","atm","rma"]],
+  ["Eden Hazard","be",["che","rma"]],
+  ["Kevin De Bruyne","be",["che","mci"]],
+  ["Romelu Lukaku","be",["che","eve","whu","mun","int","rom"]],
+  ["Toby Alderweireld","be",["aja","atm","tot"]],
+  ["Jan Vertonghen","be",["aja","tot"]],
+  ["Dries Mertens","be",["psv","nap"]],
+  ["Michy Batshuayi","be",["mar","che","val"]],
+  ["Toni Kroos","de",["bay","rma"]],
+  ["Mesut Özil","de",["rma","ars"]],
+  ["Sami Khedira","de",["rma","juv"]],
+  ["Robert Lewandowski","pl",["dor","bay","bar"]],
+  ["Jürgen Klinsmann","de",["int","mon","tot","bay"]],
+  ["Michael Ballack","de",["lev","bay","che"]],
+  ["Miroslav Klose","de",["bay","laz"]],
+  ["Mario Gómez","de",["bay","fio"]],
+  ["Mario Götze","de",["dor","bay"]],
+  ["İlkay Gündoğan","de",["dor","mci","bar"]],
+  ["Mats Hummels","de",["bay","dor"]],
+  ["Mario Mandžukić","hr",["bay","atm","juv","mil"]],
+  ["Luka Modrić","hr",["tot","rma"]],
+  ["Ivan Rakitić","hr",["sch","sev","bar"]],
+  ["Mateo Kovačić","hr",["int","rma","che","mci"]],
+  ["Dejan Lovren","hr",["lyo","liv"]],
+  ["Xabi Alonso","es",["liv","rma","bay"]],
+  ["Fernando Morientes","es",["rma","mon","liv","val"]],
+  ["Iker Casillas","es",["rma","por"]],
+  ["Pepe","pt",["por","rma"]],
+  ["Álvaro Morata","es",["rma","juv","che","atm","mil"]],
+  ["Sergio Ramos","es",["sev","rma","psg"]],
+  ["Dani Alves","br",["sev","bar","juv","psg"]],
+  ["Maicon","br",["mon","int","rma","mci","rom"]],
+  ["Thiago Silva","br",["mil","psg","che"]],
+  ["David Luiz","br",["ben","che","psg","ars"]],
+  ["Alex Sandro","br",["por","juv"]],
+  ["Douglas Costa","br",["sch","bay","juv"]],
+  ["Philippe Coutinho","br",["liv","bar","bay"]],
+  ["Casemiro","br",["por","rma","mun"]],
+  ["Roberto Carlos","br",["int","rma"]],
+  ["Emerson","br",["lev","rom","juv","rma","mil"]],
+  ["Cafu","br",["rom","mil"]],
+  ["Filippo Inzaghi","it",["juv","mil"]],
+  ["Gianluca Zambrotta","it",["juv","bar","mil"]],
+  ["Andrea Pirlo","it",["int","mil","juv"]],
+  ["Fabio Cannavaro","it",["nap","int","juv","rma"]],
+  ["Alessandro Nesta","it",["laz","mil"]],
+  ["Antonio Cassano","it",["rom","rma","mil","int"]],
+  ["Mattia De Sciglio","it",["mil","juv"]],
+  ["Leonardo Bonucci","it",["juv","mil"]],
+  ["Paul Pogba","fr",["mun","juv"]],
+  ["Olivier Giroud","fr",["ars","che","mil"]],
+  ["Raphaël Varane","fr",["rma","mun"]],
+  ["Anthony Martial","fr",["mon","mun","sev"]],
+  ["Alexandre Lacazette","fr",["lyo","ars","atm"]],
+  ["Antoine Griezmann","fr",["atm","bar"]],
+  ["Kingsley Coman","fr",["psg","juv","bay"]],
+  ["Ousmane Dembélé","fr",["dor","bar","psg"]],
+  ["Blaise Matuidi","fr",["psg","juv"]],
+  ["Adrien Rabiot","fr",["psg","juv","mun"]],
+  ["Willy Sagnol","fr",["mon","bay"]],
+  ["Robert Pirès","fr",["mar","ars","vil"]],
+  ["Sylvain Wiltord","fr",["ars","lyo","mar"]],
+  ["Djibril Cissé","fr",["liv","mar"]],
+  ["Éric Abidal","fr",["lyo","bar","mon"]],
+  ["Jérémy Ménez","fr",["mon","rom","psg","mil"]],
+  ["Hatem Ben Arfa","fr",["lyo","mar","psg"]],
+  ["Samir Nasri","fr",["mar","ars","mci","sev"]],
+  ["Yaya Touré","ci",["mon","bar","mci"]],
+  ["Kolo Touré","ci",["ars","mci","liv"]],
+  ["Didier Drogba","ci",["mar","che","gala"]],
+  ["Gervinho","ci",["ars","rom"]],
+  ["Emmanuel Adebayor","tg",["mon","ars","mci","rma","tot"]],
+  ["Sulley Muntari","gh",["int","mil"]],
+  ["Kevin-Prince Boateng","gh",["tot","mil","sch","bar","fio"]],
+  ["Jérôme Boateng","de",["mci","bay"]],
+  ["Gareth Bale","gb-wls",["tot","rma"]],
+  ["Aaron Ramsey","gb-wls",["ars","juv"]],
+  ["Craig Bellamy","gb-wls",["new","liv","mci","whu"]],
+  ["Robbie Keane","ie",["tot","liv","int"]],
+  ["Damien Duff","ie",["che","new"]],
+  ["Shay Given","ie",["new","mci"]],
+  ["Michael Owen","gb-eng",["liv","rma","new","mun"]],
+  ["Frank Lampard","gb-eng",["whu","che","mci"]],
+  ["Joe Cole","gb-eng",["whu","che","liv"]],
+  ["Ashley Cole","gb-eng",["ars","che","rom"]],
+  ["Sol Campbell","gb-eng",["tot","ars","new"]],
+  ["Wayne Rooney","gb-eng",["eve","mun"]],
+  ["Raheem Sterling","gb-eng",["liv","mci","che"]],
+  ["James Milner","gb-eng",["new","mci","liv"]],
+  ["Kyle Walker","gb-eng",["tot","mci"]],
+  ["Kieran Trippier","gb-eng",["tot","atm","new"]],
+  ["Harry Kane","gb-eng",["tot","bay"]],
+  ["Jadon Sancho","gb-eng",["dor","mun"]],
+  ["Danny Welbeck","gb-eng",["mun","ars"]],
+  ["Ashley Young","gb-eng",["mun","int","eve"]],
+  ["Chris Smalling","gb-eng",["mun","rom"]],
+  ["Micah Richards","gb-eng",["mci","fio"]],
+  ["Scott McTominay","gb-sct",["mun","nap"]],
+  ["Robbie Fowler","gb-eng",["liv","mci"]],
+  ["Peter Crouch","gb-eng",["tot","liv"]],
+  ["Jermain Defoe","gb-eng",["whu","tot"]],
+  ["Glen Johnson","gb-eng",["che","liv"]],
+  ["David James","gb-eng",["liv","whu","mci","tot"]],
+  ["Rio Ferdinand","gb-eng",["whu","mun"]],
+  ["Owen Hargreaves","gb-eng",["bay","mun","mci"]],
+  ["Steve McManaman","gb-eng",["liv","rma","mci"]],
+  ["Theo Walcott","gb-eng",["ars","eve"]],
+  ["Jack Wilshere","gb-eng",["ars","whu"]],
+  ["Alex Oxlade-Chamberlain","gb-eng",["ars","liv"]],
+  ["Kalidou Koulibaly","sn",["nap","che"]],
+  ["Sadio Mané","sn",["liv","bay"]],
+  ["Demba Ba","sn",["whu","new","che"]],
+  ["Mohamed Salah","eg",["che","fio","rom","liv"]],
+  ["Achraf Hakimi","ma",["rma","dor","int","psg"]],
+  ["Hakim Ziyech","ma",["aja","che"]],
+  ["Medhi Benatia","ma",["rom","bay","juv"]],
+  ["Marouane Fellaini","be",["eve","mun"]],
+  ["Radja Nainggolan","be",["rom","int"]],
+  ["Axel Witsel","be",["ben","dor","atm"]],
+  ["Divock Origi","be",["liv","mil"]],
+  ["Thomas Vermaelen","be",["aja","ars","bar"]],
+  ["Henrik Larsson","se",["bar","mun"]],
+  ["Freddie Ljungberg","se",["ars","whu"]],
+  ["Dejan Kulusevski","se",["juv","tot"]],
+  ["Nemanja Vidić","rs",["mun","int"]],
+  ["Nemanja Matić","rs",["che","mun","rom","ben"]],
+  ["Aleksandar Kolarov","rs",["laz","mci","int","rom"]],
+  ["Dušan Vlahović","rs",["fio","juv"]],
+  ["Luka Jović","rs",["ben","rma","mil","fio"]],
+  ["Wojciech Szczęsny","pl",["ars","rom","juv"]],
+  ["Jakub Błaszczykowski","pl",["dor","fio"]],
+  ["Grzegorz Krychowiak","pl",["sev","psg","whu"]],
+  ["Arkadiusz Milik","pl",["aja","nap","juv","mar"]],
+  ["Piotr Zieliński","pl",["nap","int"]],
+  ["Edin Džeko","ba",["mci","rom","int"]],
+  ["Miralem Pjanić","ba",["lyo","rom","juv","bar"]],
+  ["Christian Eriksen","dk",["aja","tot","int","mun"]],
+  ["Nicklas Bendtner","dk",["ars","juv"]],
+  ["Simon Kjær","dk",["mil","sev","rom"]],
+  ["Pierre-Emerick Aubameyang","ga",["dor","ars","bar","che","mar"]],
+  ["Henrikh Mkhitaryan","am",["dor","mun","ars","rom","int"]],
+  ["Sokratis","gr",["dor","ars","mil"]],
+  ["Kostas Manolas","gr",["rom","nap"]],
+  ["Xherdan Shaqiri","ch",["bay","int","liv","lyo"]],
+  ["Granit Xhaka","ch",["ars","lev"]],
+  ["Stephan Lichtsteiner","ch",["laz","juv","ars"]],
+  ["Breel Embolo","ch",["sch","mon"]],
+  ["Arda Turan","tr",["atm","bar","gala"]],
+  ["Hakan Çalhanoğlu","tr",["lev","mil","int"]],
+  ["Emre Belözoğlu","tr",["int","new","atm","gala"]],
+  ["Fernando Muslera","uy",["laz","gala"]],
+  ["Diego Godín","uy",["vil","atm","int"]],
+  ["Cristian Rodríguez","uy",["por","atm"]],
+  ["Sebastián Coates","uy",["liv","spo"]],
+  ["Juan Cuadrado","co",["fio","che","juv","int"]],
+  ["David Ospina","co",["ars","nap"]],
+  ["Yerry Mina","co",["bar","eve"]],
+  ["Carlos Bacca","co",["sev","mil","vil"]],
+  ["Gary Medel","cl",["sev","int"]],
+  ["Claudio Bravo","cl",["bar","mci"]],
+  ["Mauricio Isla","cl",["juv","mar"]],
+  ["Paulo Dybala","ar",["juv","rom"]],
+  ["Mauro Icardi","ar",["int","psg","gala"]],
+  ["Erik Lamela","ar",["rom","tot","sev"]],
+  ["Éver Banega","ar",["val","int","sev"]],
+  ["Giovani Lo Celso","ar",["psg","tot","vil","ben"]],
+  ["Leandro Paredes","ar",["rom","psg","juv"]],
+  ["Nicolás Otamendi","ar",["por","val","mci","ben"]],
+  ["Marcos Rojo","ar",["spo","mun"]],
+  ["Federico Fazio","ar",["sev","tot","rom"]],
+  ["Ezequiel Lavezzi","ar",["nap","psg"]],
+  ["Pablo Zabaleta","ar",["mci","whu"]],
+  ["Javier Saviola","ar",["bar","mon","rma","ben"]],
+  ["Maxi Rodríguez","ar",["atm","liv"]],
+  ["Fernando Gago","ar",["rma","val","rom"]],
+  ["Geremi","cm",["rma","che"]],
+  ["Kepa Arrizabalaga","es",["che","rma"]],
+  ["Javier Hernández","mx",["mun","rma"]],
+  ["Ferran Torres","es",["val","mci","bar"]],
+  ["Eric García","es",["mci","bar"]],
+  ["Keylor Navas","cr",["rma","psg"]],
+  ["Jesé","es",["rma","psg"]],
+  ["Maxwell","br",["aja","int","bar","psg"]],
+  ["Danilo","br",["por","rma","mci","juv"]],
+  ["Alexander Hleb","by",["ars","bar"]],
+  ["Alex Song","cm",["ars","bar"]],
+  ["Sylvinho","br",["ars","bar"]],
+  ["Yannick Carrasco","be",["mon","atm"]],
+];
+
+/* nicknames / alternative spellings so common names are accepted */
+const ALIASES = {
+  "Cristiano Ronaldo":["cr7","cristiano"],
+  "Ronaldo":["r9","ronaldo nazario","o fenomeno"],
+  "Zlatan Ibrahimović":["zlatan","ibra"],
+  "Samuel Eto'o":["etoo","eto o"],
+  "Javier Hernández":["chicharito"],
+  "Sergio Agüero":["kun","kun aguero"],
+  "Gonzalo Higuaín":["pipita"],
+  "Andrea Pirlo":["pirlo"],
+  "Filippo Inzaghi":["pippo","pippo inzaghi"],
+  "Kevin-Prince Boateng":["prince boateng","kpb"],
+  "İlkay Gündoğan":["gundogan","ilkay gundogan"],
+  "Thiago Alcântara":["thiago"],
+  "Dani Alves":["daniel alves"],
+  "Pierre-Emerick Aubameyang":["aubameyang","auba"],
+  "Henrikh Mkhitaryan":["mkhitaryan","micki"],
+  "Xherdan Shaqiri":["shaqiri"],
+  "Hakan Çalhanoğlu":["calhanoglu"],
+  "Wojciech Szczęsny":["szczesny"],
+  "Grzegorz Krychowiak":["krychowiak"],
+  "Arkadiusz Milik":["milik"],
+  "Jakub Błaszczykowski":["blaszczykowski","kuba"],
+  "Emmanuel Adebayor":["adebayor"],
+  "Alexis Sánchez":["alexis"],
+  "Karim Benzema":["benzema"],
+  "Kylian Mbappé":["mbappe"],
+  "Ángel Di María":["di maria","dimaria"],
+  "Éric Abidal":["abidal"],
+  "Jérémy Ménez":["menez"],
+  "Éver Banega":["banega"],
+  "Mohamed Salah":["salah","mo salah"],
+  "Achraf Hakimi":["hakimi"],
+};
+
+/* ============ GENERATE PAIRS ============ */
+const MIN_OVERLAP = 3;
+const clean = MASTER.filter(p=>Array.isArray(p[2]) && new Set(p[2]).size>=2);
+const pairMap = new Map();
+for(const [n,f,cs] of clean){
+  const u=[...new Set(cs)];
+  for(let i=0;i<u.length;i++)for(let j=i+1;j<u.length;j++){
+    const key=[u[i],u[j]].sort().join("|");
+    if(!pairMap.has(key)) pairMap.set(key,[]);
+    pairMap.get(key).push({n, nat:f, alt:ALIASES[n]||[]});
+  }
+}
+let ALLPAIRS=[...pairMap.entries()]
+  .filter(([k,pl])=>pl.length>=MIN_OVERLAP)
+  .map(([k,pl])=>{const [a,b]=k.split("|");return {a,b,players:pl,key:k};});
+/* deterministic shuffle (stable across everyone) so strong pairs are spread out */
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+ALLPAIRS.sort((x,y)=>hashStr(x.key)-hashStr(y.key));
+
+/* ============ ENGINE ============ */
+const EPOCH = Date.UTC(2025,0,1);
+const DAY = 86400000;
+function todayUTC(){const d=new Date();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());}
+const dayNo = Math.floor((todayUTC()-EPOCH)/DAY);
+const dailyIndex = ((dayNo % ALLPAIRS.length)+ALLPAIRS.length)%ALLPAIRS.length;
+const _q = new URLSearchParams(location.search);
+let isPractice=false, activeIndex=dailyIndex;
+if(_q.has("p")){const pi=parseInt(_q.get("p"),10);if(!isNaN(pi)&&ALLPAIRS[pi]){activeIndex=pi;isPractice=true;}}
+const puzzle = ALLPAIRS[activeIndex];
+
+const $=id=>document.getElementById(id);
+function norm(s){
+    return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9\s']/g," ").replace(/\s+/g," ").trim();
+}
+function acceptedFor(p){
+  const set=new Set();const full=norm(p.n);set.add(full);
+  const parts=full.split(" ");
+  if(parts.length>1){set.add(parts[parts.length-1]);set.add(parts.slice(1).join(" "));}
+  (p.alt||[]).forEach(a=>set.add(norm(a)));
+  return set;
+}
+const PLAYERS=puzzle.players.map(p=>({...p,accepts:acceptedFor(p),done:false}));
+
+/* header */
+const now=new Date();
+if(isPractice){$("dailyNo").textContent="Practice";$("dailyDate").textContent="warm-up round";}
+else{$("dailyNo").textContent="#"+dayNo;$("dailyDate").textContent=now.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});}
+$("tomorrow").textContent=isPractice?"This is a practice pair — the daily is on the home page.":"New clubs at midnight UTC. "+ALLPAIRS.length+" matchups in rotation.";
+
+/* matchup */
+function crestHTML(k){const c=CLUBS[k];
+  return `<div class="club"><div class="crest" style="background:linear-gradient(135deg,${c.c1},${c.c2});color:${c.tx}">${c.ab}</div><div class="cname">${c.name}</div></div>`;}
+$("matchup").innerHTML=crestHTML(puzzle.a)+`<div class="vs">✕</div>`+crestHTML(puzzle.b);
+
+/* clue grid (flag reveals nationality; name hidden until guessed) */
+$("total").textContent=PLAYERS.length;
+const grid=$("grid");
+PLAYERS.forEach((p,i)=>{
+  const d=document.createElement("div");d.className="slot";d.id="slot"+i;
+  const code=p.nat.replace("gb-","").toUpperCase();
+  d.innerHTML=`<img class="flag" src="https://flagcdn.com/${p.nat}.svg" alt="${code}" title="${code}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'flagcode',textContent:'${code}'}))"/><div class="nm hidden-nm">• • •</div>`;
+  grid.appendChild(d);
+});
+
+/* timer + state */
+let time=60,timer=null,running=false,finished=false,foundCount=0;
+const RING=$("ring"),CIRC=2*Math.PI*30;RING.style.strokeDasharray=CIRC;
+function paintTimer(){$("tsec").textContent=time;RING.style.strokeDashoffset=CIRC*(1-time/60);RING.style.stroke=time<=10?"var(--bad)":"var(--accent)";}
+paintTimer();
+
+function start(){
+  if(running||finished)return;running=true;$("startBtn").style.display="none";
+  const g=$("guess");g.disabled=false;g.placeholder="Type a player and hit Enter…";g.focus();
+  $("hint").textContent="Go! Surnames count. Accents optional.";
+  timer=setInterval(()=>{time--;paintTimer();if(time<=0){clearInterval(timer);end(false);}},1000);
+}
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1400);}
+
+function submit(){
+  const g=$("guess");const val=norm(g.value);if(!val)return;
+  let hit=-1;
+  for(let i=0;i<PLAYERS.length;i++){if(!PLAYERS[i].done&&PLAYERS[i].accepts.has(val)){hit=i;break;}}
+  if(hit>=0){
+    PLAYERS[hit].done=true;foundCount++;$("found").textContent=foundCount;
+    const s=$("slot"+hit);s.classList.add("found","pop");
+    s.querySelector(".nm").outerHTML=`<div class="nm">${PLAYERS[hit].n}</div>`;
+    g.value="";if(foundCount===PLAYERS.length)end(true);
+  }else{
+    const already=PLAYERS.some(p=>p.done&&p.accepts.has(val));
+    toast(already?"Already got that one":"Not in this pair");
+    g.classList.remove("shake");void g.offsetWidth;g.classList.add("shake");g.select();
+  }
+}
+function end(win){
+  if(finished)return;finished=true;running=false;clearInterval(timer);
+  const g=$("guess");g.disabled=true;g.value="";g.placeholder="Time!";
+  PLAYERS.forEach((p,i)=>{if(!p.done){const s=$("slot"+i);s.classList.add("reveal");s.querySelector(".nm").outerHTML=`<div class="nm">${p.n}</div>`;}});
+  const r=$("result");r.style.display="block";
+  const perfect=foundCount===PLAYERS.length;
+  r.innerHTML=`<h2>${perfect?"Perfect! 🏆":(win?"Nice!":"Time!")}</h2>
+    <p>You named <b style="color:var(--text)">${foundCount}/${PLAYERS.length}</b> players who wore both shirts.</p>
+    <button class="btn block" id="shareBtn">Share result</button>
+    <button class="btn secondary block" id="againBtn">Practice a random pair</button>`;
+  $("shareBtn").onclick=share;$("againBtn").onclick=randomPractice;$("hint").style.display="none";
+}
+function share(){
+  const c=CLUBS;const head=isPractice?"Crossover (practice)":"Crossover #"+dayNo;
+  const line=`${head}\n${c[puzzle.a].name} ✕ ${c[puzzle.b].name}\n${foundCount}/${PLAYERS.length} players ${"🟩".repeat(foundCount)}${"⬜".repeat(PLAYERS.length-foundCount)}\nplay: `+location.href.split("?")[0];
+  if(navigator.share){navigator.share({text:line}).catch(()=>{});}
+  else{navigator.clipboard?.writeText(line).then(()=>toast("Result copied!"),()=>toast(line));}
+}
+function randomPractice(){
+  const others=ALLPAIRS.map((_,i)=>i).filter(i=>i!==activeIndex);
+  const pick=others[(foundCount+time+dayNo+activeIndex)%others.length];
+  location.href=location.pathname+"?p="+pick;
+}
+$("startBtn").onclick=start;
+$("guess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();submit();}});
+document.addEventListener("keydown",e=>{if(!running&&!finished&&(e.key==="Enter"||e.key===" ")&&document.activeElement!==$("guess")){e.preventDefault();start();}});
+</script>
+</body>
+</html>
