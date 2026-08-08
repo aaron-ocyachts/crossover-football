@@ -57,10 +57,16 @@
   .timerRing svg{transform:rotate(-90deg)}
   .timerRing .t{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px}
   .inputRow{display:flex;gap:10px;margin-top:16px}
-  #guess{flex:1;background:var(--bg);border:1.5px solid var(--line);color:var(--text);padding:15px 16px;
+  .inputWrap{flex:1;position:relative}
+  #guess{width:100%;background:var(--bg);border:1.5px solid var(--line);color:var(--text);padding:15px 16px;
     border-radius:13px;font-size:16px;outline:none;font-family:var(--sans);transition:border-color .15s, box-shadow .15s;}
   #guess:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,194,52,.14)}
   #guess:disabled{opacity:.5}
+  .sugg{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--panel2);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;z-index:8;box-shadow:0 16px 40px rgba(0,0,0,.5);display:none}
+  .sugg .item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-weight:600;font-size:14.5px}
+  .sugg .item img{width:22px;height:16px;border-radius:2px;object-fit:cover;flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+  .sugg .item.active,.sugg .item:hover{background:rgba(255,194,52,.15)}
   .btn{border:none;border-radius:13px;padding:0 22px;font-weight:800;font-size:15px;cursor:pointer;
     background:linear-gradient(135deg,var(--accent),#ff9d3c);color:#241a00;
     box-shadow:0 8px 22px rgba(255,194,52,.3);transition:transform .08s, filter .15s;}
@@ -111,14 +117,17 @@
           <circle cx="35" cy="35" r="30" stroke="#26304d" stroke-width="7" fill="none"/>
           <circle id="ring" cx="35" cy="35" r="30" stroke="var(--accent)" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="0"/>
         </svg>
-        <div class="t" id="tsec">60</div>
+        <div class="t" id="tsec">90</div>
       </div>
     </div>
     <div class="inputRow">
-      <input id="guess" type="text" placeholder="Press Start, then type a player…" autocomplete="off" spellcheck="false" disabled />
+      <div class="inputWrap">
+        <input id="guess" type="text" placeholder="Press Start, then type a player…" autocomplete="off" spellcheck="false" disabled />
+        <div class="sugg" id="sugg"></div>
+      </div>
       <button class="btn" id="startBtn">Start</button>
     </div>
-    <div class="hint" id="hint">You have 60 seconds. Surnames are fine (e.g. “Zidane”).</div>
+    <div class="hint" id="hint">You have 90 seconds. Start typing and pick a player from the list.</div>
     <div class="grid" id="grid"></div>
     <div class="result" id="result" style="display:none"></div>
   </div>
@@ -541,20 +550,23 @@ const grid=$("grid");
 PLAYERS.forEach((p,i)=>{
   const d=document.createElement("div");d.className="slot";d.id="slot"+i;
   const code=p.nat.replace("gb-","").toUpperCase();
-  d.innerHTML=`<img class="flag" src="https://flagcdn.com/${p.nat}.svg" alt="${code}" title="${code}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'flagcode',textContent:'${code}'}))"/><div class="nm hidden-nm">• • •</div>`;
+  const core=p.n.trim().split(/\s+/).pop();
+  const dashes="_".repeat(core.length);
+  d.innerHTML=`<img class="flag" src="https://flagcdn.com/${p.nat}.svg" alt="${code}" title="${code}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'flagcode',textContent:'${code}'}))"/><div class="nm hidden-nm">${dashes}</div>`;
   grid.appendChild(d);
 });
 
 /* timer + state */
-let time=60,timer=null,running=false,finished=false,foundCount=0;
+const DURATION=90;
+let time=DURATION,timer=null,running=false,finished=false,foundCount=0;
 const RING=$("ring"),CIRC=2*Math.PI*30;RING.style.strokeDasharray=CIRC;
-function paintTimer(){$("tsec").textContent=time;RING.style.strokeDashoffset=CIRC*(1-time/60);RING.style.stroke=time<=10?"var(--bad)":"var(--accent)";}
+function paintTimer(){$("tsec").textContent=time;RING.style.strokeDashoffset=CIRC*(1-time/DURATION);RING.style.stroke=time<=10?"var(--bad)":"var(--accent)";}
 paintTimer();
 
 function start(){
   if(running||finished)return;running=true;$("startBtn").style.display="none";
-  const g=$("guess");g.disabled=false;g.placeholder="Type a player and hit Enter…";g.focus();
-  $("hint").textContent="Go! Surnames count. Accents optional.";
+  const g=$("guess");g.disabled=false;g.placeholder="Type a player, then pick from the list…";g.focus();
+  $("hint").textContent="Go! Start typing and click a name (accents optional).";
   timer=setInterval(()=>{time--;paintTimer();if(time<=0){clearInterval(timer);end(false);}},1000);
 }
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1400);}
@@ -573,7 +585,25 @@ function submit(){
     toast(already?"Already got that one":"Not in this pair");
     g.classList.remove("shake");void g.offsetWidth;g.classList.add("shake");g.select();
   }
+  clearSug();
 }
+
+/* ---- autocomplete: suggest player names from the whole pool, click to pick ---- */
+const NAMEPOOL=[...new Map(MASTER.map(p=>[p[0],{n:p[0],nat:p[1]}])).values()];
+const SUG=$("sugg");let sugItems=[],sugIdx=-1;
+function clearSug(){SUG.innerHTML="";SUG.style.display="none";sugItems=[];sugIdx=-1;}
+function paintSug(){[...SUG.children].forEach((c,i)=>c.classList.toggle("active",i===sugIdx));}
+function updateSug(){
+  if(!running){clearSug();return;}
+  const q=norm($("guess").value);
+  if(q.length<1){clearSug();return;}
+  const res=NAMEPOOL.filter(p=>norm(p.n).includes(q));
+  res.sort((a,b)=>{const an=norm(a.n),bn=norm(b.n),as=an.startsWith(q)?0:1,bs=bn.startsWith(q)?0:1;return as!==bs?as-bs:an.localeCompare(bn);});
+  sugItems=res.slice(0,6);sugIdx=-1;
+  SUG.innerHTML=sugItems.map((p,i)=>`<div class="item" data-i="${i}"><img src="https://flagcdn.com/${p.nat}.svg" onerror="this.style.visibility='hidden'"/>${p.n}</div>`).join("");
+  SUG.style.display=sugItems.length?"block":"none";
+}
+SUG.addEventListener("mousedown",e=>{const it=e.target.closest(".item");if(!it)return;e.preventDefault();$("guess").value=sugItems[+it.dataset.i].n;submit();});
 function end(win){
   if(finished)return;finished=true;running=false;clearInterval(timer);
   const g=$("guess");g.disabled=true;g.value="";g.placeholder="Time!";
@@ -598,7 +628,14 @@ function randomPractice(){
   location.href=location.pathname+"?p="+pick;
 }
 $("startBtn").onclick=start;
-$("guess").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();submit();}});
+$("guess").addEventListener("input",updateSug);
+$("guess").addEventListener("keydown",e=>{
+  if(e.key==="ArrowDown"){if(sugItems.length){e.preventDefault();sugIdx=(sugIdx+1)%sugItems.length;paintSug();}}
+  else if(e.key==="ArrowUp"){if(sugItems.length){e.preventDefault();sugIdx=(sugIdx-1+sugItems.length)%sugItems.length;paintSug();}}
+  else if(e.key==="Enter"){e.preventDefault();if(sugIdx>=0&&sugItems[sugIdx])$("guess").value=sugItems[sugIdx].n;submit();}
+  else if(e.key==="Escape"){clearSug();}
+});
+$("guess").addEventListener("blur",()=>setTimeout(clearSug,120));
 document.addEventListener("keydown",e=>{if(!running&&!finished&&(e.key==="Enter"||e.key===" ")&&document.activeElement!==$("guess")){e.preventDefault();start();}});
 </script>
 </body>
